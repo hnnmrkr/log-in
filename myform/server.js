@@ -4,6 +4,7 @@ const sessions = require('express-session');
 const http = require('http');
 var parseUrl = require('body-parser');
 const app = express();
+const bcrypt = require('bcrypt');
 
 var mysql = require('mysql');
 const { encode } = require('punycode');
@@ -40,12 +41,12 @@ app.post('/register', encodeUrl, (req, res) => {
     con.connect(function(err) {
         if (err){
             console.log(err);
-        };
+        }
         // checking user already registered or no
         con.query(`SELECT * FROM users WHERE username = '${userName}' AND password  = '${password}'`, function(err, result){
             if(err){
                 console.log(err);
-            };
+            }
             if(Object.keys(result).length > 0){
                 res.sendFile(__dirname + '/failReg.html');
             }else{
@@ -78,14 +79,23 @@ app.post('/register', encodeUrl, (req, res) => {
                 `);
                 }
                 // inserting new user data
-                var sql = `INSERT INTO users (firstname, lastname, username, password) VALUES ('${firstName}', '${lastName}', '${userName}', '${password}')`;
-                con.query(sql, function (err, result) {
-                    if (err){
+                // Generate a salt and hash the password
+                bcrypt.hash(password, 10, function(err, hash) {
+                    if (err) {
                         console.log(err);
-                    }else{
-                        // using userPage function for creating user page
-                        userPage();
-                    };
+                        // Handle error appropriately
+                    } else {
+                        // Insert the user with the hashed password into the database
+                        var sql = `INSERT INTO users (firstname, lastname, username, password) VALUES ('${firstName}', '${lastName}', '${userName}', '${hash}')`;
+                        con.query(sql, function (err, result) {
+                            if (err){
+                                console.log(err);
+                            } else {
+                                // Call userPage() after successful registration
+                                userPage();
+                            }
+                        });
+                    }
                 });
 
             }
@@ -107,11 +117,11 @@ app.post("/dashboard", encodeUrl, (req, res)=>{
     con.connect(function(err) {
         if(err){
             console.log(err);
-        };
+        }
         con.query(`SELECT * FROM users WHERE username = '${userName}' AND password = '${password}'`, function (err, result) {
             if(err){
                 console.log(err);
-            };
+            }
 
             function userPage(){
                 // We create a session for the dashboard (user page) page and save the user data to this session:
